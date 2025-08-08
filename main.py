@@ -1,44 +1,89 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import datetime
 
-# Create FastAPI app
 app = FastAPI(
     title="Stocky AI Backend",
-    description="Backend API for Stocky.AI",
+    description="Backend API for Stocky.AI - Stocks, Crypto, AI Chat, Portfolio",
     version="1.0.0"
 )
 
 # -------------------------
-# Health Check Endpoint
+# Health Check
 # -------------------------
 @app.get("/")
 @app.head("/")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "timestamp": datetime.datetime.utcnow()}
 
 # -------------------------
-# Example Data Model
+# Request Models
 # -------------------------
-class PredictionRequest(BaseModel):
+class StockRequest(BaseModel):
     ticker: str
     days: int
 
+class CryptoRequest(BaseModel):
+    symbol: str
+    days: int
+
+class ChatRequest(BaseModel):
+    message: str
+
+class PortfolioRequest(BaseModel):
+    user_id: str
+    assets: dict
+
 # -------------------------
-# Example Endpoint
+# Stock Prediction Endpoint
 # -------------------------
-@app.post("/predict")
-def predict_stock(data: PredictionRequest):
-    # Placeholder prediction logic
+@app.post("/stocks/predict")
+def predict_stock(data: StockRequest):
+    # TODO: Replace with real stock prediction logic
     return {
         "ticker": data.ticker.upper(),
         "days": data.days,
-        "prediction": "This is a sample prediction."
+        "prediction": f"Predicted upward trend for {data.ticker.upper()} over {data.days} days."
     }
 
 # -------------------------
-# Run server (for local dev)
+# Crypto Prediction Endpoint
 # -------------------------
-# On Render, you don't need this block — it's run by uvicorn
+@app.post("/crypto/predict")
+def predict_crypto(data: CryptoRequest):
+    # TODO: Replace with real crypto prediction logic
+    return {
+        "symbol": data.symbol.upper(),
+        "days": data.days,
+        "prediction": f"Expected price increase for {data.symbol.upper()} over {data.days} days."
+    }
+
+# -------------------------
+# AI Chat Endpoint
+# -------------------------
+@app.post("/ai/chat")
+def ai_chat(data: ChatRequest):
+    # TODO: Connect with OpenAI or custom AI model
+    return {
+        "user_message": data.message,
+        "ai_response": f"This is a sample AI reply to: '{data.message}'"
+    }
+
+# -------------------------
+# Portfolio Update Endpoint
+# -------------------------
+@app.post("/portfolio/update")
+def update_portfolio(data: PortfolioRequest):
+    # TODO: Save portfolio to DB
+    return {
+        "user_id": data.user_id,
+        "updated_assets": data.assets,
+        "status": "Portfolio updated successfully"
+    }
+
+# -------------------------
+# Run locally
+# -------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10000)
