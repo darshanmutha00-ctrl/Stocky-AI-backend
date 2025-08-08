@@ -1,40 +1,71 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import os, requests, time
-app = FastAPI(title='Stocky.AI Backend')
+import requests
+import time
+import os
 
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+# Create FastAPI app
+app = FastAPI()
 
-FINNHUB_KEY = os.environ.get('MARKET_API_KEY') or 'demo'  # replace with your key
+# Allow frontend connection
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change "*" to your frontend domain for more security
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.get('/health')
+# Securely get API key from environment or fallback
+API_KEY = os.getenv("FINNHUB_API_KEY", "your_api_key_here")  # Replace if needed
+
+# Root route (check if backend works)
+@app.get("/")
+def home():
+    return {"message": "Stocky.AI Backend is running"}
+
+# Health check
+@app.get("/health")
 def health():
-    return {'status':'ok'}
+    return {"status": "ok"}
 
-@app.get('/api/ohlc/{symbol}')
-def get_ohlc(symbol: str, timeframe: str = '1d', limit: int = 200):
-    # Use Finnhub candles endpoint as example: https://finnhub.io/docs/api/market-data
-    # timeframe param mapping to resolution
-    mapping = {'1m':'1','5m':'5','15m':'15','1h':'60','1d':'D'}
-    resolution = mapping.get(timeframe, 'D')
-    to_ts = int(time.time())
-    from_ts = to_ts - (limit * 60)
-    url = f'https://finnhub.io/api/v1/stock/candle?symbol={symbol}&resolution={resolution}&from={from_ts}&to={to_ts}&token={FINNHUB_KEY}'
-    r = requests.get(url, timeout=10)
-    if r.status_code!=200:
-        raise HTTPException(status_code=502, detail='Market API error')
-    data = r.json()
-    # Convert to lightweight-charts compatible format: {time, o, h, l, c, v}
-    if data.get('s')!='ok':
-        # fallback generate mock
-        import random, time
-        now = int(time.time())
-        sample=[]
-        for i in range(limit):
-            base = 100 + random.random()*10
-            sample.append({'t': now - i*60, 'o': base, 'h': base+random.random(), 'l': base-random.random(), 'c': base+random.random()-0.5, 'v': random.random()*1000})
-        return list(reversed(sample))
-    result=[]
-    for i in range(len(data['t'])):
-        result.append({'t': data['t'][i], 'o': data['o'][i], 'h': data['h'][i], 'l': data['l'][i], 'c': data['c'][i], 'v': data['v'][i] if 'v' in data else None})
-    return result
+# Stock price data route
+@app.get("/api/ohlcv/{symbol}")
+def get_ohlcv(symbol: str, resolution: str = "1d", limit: int = 200):
+    try:
+        # Map resolution
+        mapping = {"1d": "D", "1h": "60", "30m": "30", "15m": "15", "5m": "5"}
+        res = mapping.get(resolution, "D")
+
+        to_ts = int(time.time())
+        from_ts = to_ts - (limit * 86400)
+
+        url = (
+            f"https://finnhub.io/api/v1/stock/candle?"
+            f"symbol={symbol}&resolution={res}&from={from_ts}&to={to_ts}&token={API_KEY}"
+        )
+
+        r = requests.get(url)
+        r.raise_for_status()
+        data = r.json()
+
+        if data.get("s") != "ok":
+            raise HTTPException(status_code=500, detail="Market API error")
+
+        # Convert to lightweight chart format
+        result = [
+            {
+                "t": data["t"][i],
+                "o": data["o"][i],
+                "h": data["h"][i],
+                "l": data["l"][i],
+                "c": data["c"][i],
+                "v": data["v"][i],
+            }
+            for i in range(len(data["t"]))
+        ]
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
