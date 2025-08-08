@@ -1,1 +1,1 @@
-# Stocky-AI-backend
+Backend (FastAPI) with Finnhub integration. Set MARKET_API_KEY env var to your Finnhub key.
